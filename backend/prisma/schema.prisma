@@ -1,0 +1,245 @@
+// --------------------------------------------------------------------------
+// Postgres (Neon) datasource.
+//
+// DATABASE_URL must be a Neon connection string, e.g.:
+//   postgresql://user:password@ep-xxxx.neon.tech/campusverse?sslmode=require
+// Get this from your Neon project dashboard -> Connection Details ->
+// "Pooled connection" (works fine for this app's connection volume).
+//
+// Unlike MySQL, Postgres' Prisma connector maps untyped String fields to
+// `text` (no length cap), so long free-text fields and base64-encoded
+// image data (Event.posterImage) are safe here with no @db.Text needed.
+//
+// After changing DATABASE_URL, run `npx prisma migrate dev --name init`
+// (not `db push`) so schema changes are tracked as migrations against the
+// shared/production database.
+// --------------------------------------------------------------------------
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Student {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  department    String
+  year          Int
+  cgpa          Float
+  interests     String         // Comma-separated interests
+  skills        String         // Comma-separated skills
+  registrations Registration[]
+  studyPlans    StudyPlan[]
+  memories      Memory[]
+  communityPosts    CommunityPost[]
+  communityComments CommunityComment[]
+}
+
+model Club {
+  id            String         @id @default(uuid())
+  name          String
+  description   String
+  category      String
+  whatsappGroup String
+  createdById   String?
+  createdBy     Staff?         @relation(fields: [createdById], references: [id])
+  registrations Registration[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Event {
+  id            String         @id @default(uuid())
+  name          String
+  description   String
+  date          String
+  type          String         // "hackathon", "workshop", "orientation", "placement_drive"
+  deadline      String
+  posterImage   String?        // Staff-uploaded poster, stored as a base64 data URL
+                                // (e.g. "data:image/jpeg;base64,..."). Stored directly in
+                                // the DB rather than on disk since Render's filesystem
+                                // isn't persisted across deploys without a paid disk.
+  location      String
+  createdById   String?
+  createdBy     Staff?         @relation(fields: [createdById], references: [id])
+  registrations Registration[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Announcement {
+  id          String   @id @default(uuid())
+  title       String
+  content     String
+  date        String
+  category    String   // "general", "academic", "placement", "exam"
+  summarized  String
+  createdById String?
+  createdBy   Staff?   @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+// Office staff / faculty accounts. Separate from Student — this is the
+// authenticated identity behind the Admin/Faculty portal.
+model Staff {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  role          String         @default("ADMIN") // "ADMIN" | "FACULTY"
+  department    String?
+  createdAt     DateTime       @default(now())
+  clubs         Club[]
+  events        Event[]
+  announcements Announcement[]
+  hostels       Hostel[]
+  libraryBooks  LibraryBook[]
+  facultyEntries Faculty[]
+  timetableSlots TimetableSlot[]
+}
+
+// Faculty Directory — lets freshers look up who teaches what, where their
+// cabin/office is, and how to reach them. Distinct from `Staff`: Staff is
+// the *login identity* for the admin/faculty portal, Faculty is the
+// *public directory listing* a student browses (a Staff member who teaches
+// may also have a Faculty entry, but the two aren't linked 1:1 since many
+// real departments have faculty who never touch the admin portal at all).
+model Faculty {
+  id          String   @id @default(uuid())
+  name        String
+  designation String   // "Professor", "Associate Professor", "Assistant Professor", "HOD"
+  department  String
+  email       String
+  cabin       String   // e.g. "Block A, Room 214"
+  officeHours String   // e.g. "Mon-Fri 2:00-4:00 PM"
+  subjects    String   // comma-separated, e.g. "DBMS, Distributed Systems"
+  createdById String?
+  createdBy   Staff?   @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+// Class Timetable — per department/year weekly schedule. Kept separate
+// from StudyPlan (which holds AI-generated exam revision schedules), since
+// this is the actual fixed class schedule, not something the agents
+// generate.
+model TimetableSlot {
+  id          String   @id @default(uuid())
+  department  String
+  year        Int
+  day         String   // "Monday".."Saturday"
+  startTime   String   // "09:00"
+  endTime     String   // "10:00"
+  subject     String
+  faculty     String   // display name — free text like other Staff-adjacent
+  room        String
+  createdById String?
+  createdBy   Staff?   @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+// Smart Library & Hostel Information — submitted-feature #9
+model Hostel {
+  id          String   @id @default(uuid())
+  name        String
+  type        String   // "Boys", "Girls", "Co-ed"
+  warden      String
+  contact     String
+  messTimings String   // e.g. "Breakfast 7:30-9:30, Lunch 12:30-2:30, Dinner 7:30-9:30"
+  facilities  String   // comma-separated, e.g. "WiFi, Laundry, Gym, Study Room"
+  location    String
+  createdById String?
+  createdBy   Staff?   @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model LibraryBook {
+  id            String   @id @default(uuid())
+  title         String
+  author        String
+  category      String   // "Textbook", "Reference", "Journal", "Fiction"
+  callNumber    String
+  totalCopies   Int      @default(1)
+  availableCopies Int    @default(1)
+  createdById   String?
+  createdBy     Staff?   @relation(fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+}
+
+// AI Senior Mentor Community — submitted-feature #3
+model CommunityPost {
+  id        String            @id @default(uuid())
+  studentId String
+  title     String
+  content   String
+  tags      String            // comma-separated, e.g. "DSA, Placements"
+  student   Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  comments  CommunityComment[]
+  createdAt DateTime          @default(now())
+}
+
+model CommunityComment {
+  id        String        @id @default(uuid())
+  postId    String
+  studentId String
+  content   String
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  student   Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+}
+
+model Registration {
+  id        String   @id @default(uuid())
+  studentId String
+  clubId    String?
+  eventId   String?
+  date      String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  club      Club?    @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  event     Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model StudyPlan {
+  id        String   @id @default(uuid())
+  studentId String
+  subject   String
+  date      String   // Target Exam Date
+  tasks     String   // JSON string representing tasks/days schedule
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Memory {
+  id        String   @id @default(uuid())
+  studentId String
+  key       String
+  value     String
+  category  String   // "preference", "interest", "chat_history", "goal"
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Entity {
+  id          String   @id @default(uuid())
+  type        String   // "Student", "Faculty", "Lab", "Club", "Event", "Subject", "Department"
+  name        String
+  description String
+}
+
+model Relation {
+  id       String @id @default(uuid())
+  sourceId String
+  targetId String
+  type     String // "MEMBER_OF", "TEACHES", "LOCATED_IN", "HAS_EXAM_ON", "ORGANIZED_BY", "REQUIRES_SKILL"
+}
+
+// Real per-query intent log, written once by plannerAgent.js on every
+// orchestrateQuery call. Backs the "AI Specialized Agent Usage" panel in
+// /api/analytics with actual counts instead of hardcoded demo numbers —
+// it starts at zero and grows as the app is actually used.
+model QueryLog {
+  id        String   @id @default(uuid())
+  intent    String
+  createdAt DateTime @default(now())
+}

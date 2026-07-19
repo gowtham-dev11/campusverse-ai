@@ -1,0 +1,21 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Env files (never commit secrets)
+.env
+.env.local
+.env.*.local
+
+# Build output
+frontend/dist/
+frontend/dist-ssr/
+
+# OS / editor
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# Logs
+*.log
