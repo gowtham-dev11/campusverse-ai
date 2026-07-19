@@ -27,6 +27,7 @@ model Student {
   id            String         @id @default(uuid())
   name          String
   email         String         @unique
+  passwordHash  String
   department    String
   year          Int
   cgpa          Float

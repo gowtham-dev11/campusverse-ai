@@ -53,10 +53,12 @@ async function main() {
   console.log('  Default login -> admin@campusverse.edu : Admin@123 (CHANGE THIS AFTER FIRST LOGIN)');
 
   // 2. Create Student
+  const studentPasswordHash = await bcrypt.hash('Student@123', 10);
   const student = await prisma.student.create({
     data: {
       name: 'Aarav Sharma',
       email: 'aarav.sharma@campus.edu',
+      passwordHash: studentPasswordHash,
       department: 'Computer Science & Engineering',
       year: 3,
       cgpa: 8.9,
@@ -66,6 +68,7 @@ async function main() {
   });
 
   console.log('Created student:', student.name);
+  console.log('  Default login -> aarav.sharma@campus.edu : Student@123 (CHANGE THIS AFTER FIRST LOGIN)');
 
   // 3. Create Memories
   await prisma.memory.createMany({

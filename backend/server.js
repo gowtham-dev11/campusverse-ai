@@ -10,8 +10,10 @@ import { KGService } from './services/kgService.js';
 import { getRecommendations } from './services/recommendationEngine.js';
 import { isGeminiAvailable, getGeminiProviderInfo } from './services/geminiService.js';
 import { createAuthRouter } from './routes/authRoutes.js';
+import { createStudentAuthRouter } from './routes/studentAuthRoutes.js';
 import { createAdminRouter } from './routes/adminRoutes.js';
 import { createCommunityRouter } from './routes/communityRoutes.js';
+import { requireStudent } from './middleware/auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -36,34 +38,29 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
 
-// Helper to get active Student (we seed one student, Aarav Sharma) — needs
-// to be defined before the routers below so it can be passed into them.
-async function getActiveStudent() {
-  let student = await prisma.student.findFirst();
-  if (!student) {
-    throw new Error('Please run seeding first using npm run db:seed');
-  }
-  return student;
-}
-
 // Separate Admin/Faculty portal — every route here requires a staff JWT
 // (see middleware/auth.js). This is intentionally isolated from the
 // student-facing endpoints below.
-app.use('/api/auth', createAuthRouter(prisma));
+app.use('/api/auth/staff', createAuthRouter(prisma));
 app.use('/api/admin', createAdminRouter(prisma));
 
-// AI Senior Mentor Community — student-facing, not staff-gated.
-app.use('/api/community', createCommunityRouter(prisma, getActiveStudent));
+// Student accounts — real email+password auth (see routes/studentAuthRoutes.js
+// and middleware/auth.js). Every student-facing endpoint below is gated with
+// requireStudent, which attaches the authenticated student as req.student.
+app.use('/api/auth/student', createStudentAuthRouter(prisma));
+
+// AI Senior Mentor Community — student-facing; posting requires a logged-in
+// student, the feed itself stays publicly readable (see communityRoutes.js).
+app.use('/api/community', createCommunityRouter(prisma, requireStudent));
 
 // PORT
 const PORT = process.env.PORT || 5000;
 
 // 1. Get Student State (for dashboard sync)
-app.get('/api/student', async (req, res) => {
+app.get('/api/student', requireStudent, async (req, res) => {
   try {
-    const student = await getActiveStudent();
     const updatedStudent = await prisma.student.findUnique({
-      where: { id: student.id },
+      where: { id: req.student.id },
       include: { registrations: true, studyPlans: true }
     });
 
@@ -85,19 +82,19 @@ app.get('/api/student', async (req, res) => {
     }));
 
     const activeReminders = await prisma.memory.findMany({
-      where: { studentId: student.id, category: 'goal' }
+      where: { studentId: updatedStudent.id, category: 'goal' }
     });
 
     res.json({
       student: {
-        id: student.id,
-        name: student.name,
-        email: student.email,
-        department: student.department,
-        year: student.year,
-        cgpa: student.cgpa,
-        interests: student.interests,
-        skills: student.skills
+        id: updatedStudent.id,
+        name: updatedStudent.name,
+        email: updatedStudent.email,
+        department: updatedStudent.department,
+        year: updatedStudent.year,
+        cgpa: updatedStudent.cgpa,
+        interests: updatedStudent.interests,
+        skills: updatedStudent.skills
       },
       dashboard: {
         joinedClubs,
@@ -112,15 +109,14 @@ app.get('/api/student', async (req, res) => {
 });
 
 // 2. Chat API - Triggers Agent Orchestration Engine
-app.post('/api/agent/chat', async (req, res) => {
+app.post('/api/agent/chat', requireStudent, async (req, res) => {
   try {
     const { query } = req.body;
     if (!query) {
       return res.status(400).json({ error: 'Query is required' });
     }
 
-    const student = await getActiveStudent();
-    const result = await orchestrateQuery(student.id, query, prisma);
+    const result = await orchestrateQuery(req.student.id, query, prisma);
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -135,15 +131,14 @@ app.post('/api/agent/chat', async (req, res) => {
 // getAgentTextResponse in CampusContext.jsx) is what gets spoken back via
 // speech synthesis. `inputMode` just lets the frontend distinguish a
 // voice-originated turn for UI purposes (e.g. auto-speak the reply).
-app.post('/api/agent/voice', async (req, res) => {
+app.post('/api/agent/voice', requireStudent, async (req, res) => {
   try {
     const { transcript } = req.body;
     if (!transcript || !transcript.trim()) {
       return res.status(400).json({ error: 'Transcript is required' });
     }
 
-    const student = await getActiveStudent();
-    const result = await orchestrateQuery(student.id, transcript, prisma);
+    const result = await orchestrateQuery(req.student.id, transcript, prisma);
     res.json({ ...result, inputMode: 'voice' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -240,10 +235,9 @@ app.get('/api/timetable', async (req, res) => {
 });
 
 // 4. Recommendation Engine Data (live endpoint)
-app.get('/api/student/recommendations', async (req, res) => {
+app.get('/api/student/recommendations', requireStudent, async (req, res) => {
   try {
-    const student = await getActiveStudent();
-    const recommendations = await getRecommendations(student.id, prisma);
+    const recommendations = await getRecommendations(req.student.id, prisma);
     res.json(recommendations);
   } catch (error) {
     res.status(500).json({ error: error.message });

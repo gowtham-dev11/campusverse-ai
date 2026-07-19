@@ -1,39 +1,33 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-// Separate auth context for the Admin/Faculty console. Deliberately isolated
-// from CampusContext (student side) — different backend routes
-// (/api/auth/staff, /api/admin/*), different token, different login flow.
+// Real auth context for students — email + password, backed by
+// /api/auth/student/* (see backend/routes/studentAuthRoutes.js). Separate
+// from AdminContext (staff side): different routes, different token,
+// different storage key, but same shape/pattern so both sides behave
+// consistently from the common login page's point of view.
 
-const AdminContext = createContext();
-export const useAdmin = () => useContext(AdminContext);
+const StudentAuthContext = createContext();
+export const useStudentAuth = () => useContext(StudentAuthContext);
 
-// Resolves to (in priority order):
-//   1. VITE_API_URL, if set — for a SPLIT deploy (frontend on Vercel/Netlify,
-//      backend on Render/Railway as its own service). See frontend/.env.example.
-//   2. A relative '/api' path — correct for the single-service Docker deploy
-//      (server.js serves this build from the same origin, see DEPLOYMENT.md)
-//      AND for local dev, where vite.config.js proxies /api to the backend.
-// Previously this was hardcoded to 'http://localhost:5000/api', which broke
-// every API call once deployed anywhere other than local dev.
-const ADMIN_BACKEND_URL = import.meta.env.VITE_API_URL || '/api';
-// This is a real Vite/browser app (not a claude.ai artifact), so localStorage
-// is fine here — it's how the staff session survives a page refresh.
-const STORAGE_KEY = 'campusverse_staff_token';
+// See the matching comment in AdminContext.jsx for why this resolves to a
+// relative '/api' by default.
+const STUDENT_BACKEND_URL = import.meta.env.VITE_API_URL || '/api';
+const STORAGE_KEY = 'campusverse_student_token';
 
-export const AdminProvider = ({ children }) => {
+export const StudentAuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => localStorage.getItem(STORAGE_KEY) || null);
-  const [staff, setStaff] = useState(null);
+  const [student, setStudent] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
 
   const logout = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     setToken(null);
-    setStaff(null);
+    setStudent(null);
   }, []);
 
-  // Attaches `Authorization: Bearer <token>` to every admin API call.
-  const fetchAdmin = useCallback(async (path, options = {}) => {
-    const res = await fetch(`${ADMIN_BACKEND_URL}${path}`, {
+  // Attaches `Authorization: Bearer <token>` to every student API call.
+  const fetchStudent = useCallback(async (path, options = {}) => {
+    const res = await fetch(`${STUDENT_BACKEND_URL}${path}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -58,7 +52,7 @@ export const AdminProvider = ({ children }) => {
   }, [token, logout]);
 
   const login = useCallback(async (email, password) => {
-    const res = await fetch(`${ADMIN_BACKEND_URL}/auth/staff/login`, {
+    const res = await fetch(`${STUDENT_BACKEND_URL}/auth/student/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -69,12 +63,28 @@ export const AdminProvider = ({ children }) => {
     }
     localStorage.setItem(STORAGE_KEY, data.token);
     setToken(data.token);
-    setStaff(data.staff);
-    return data.staff;
+    setStudent(data.student);
+    return data.student;
+  }, []);
+
+  const signup = useCallback(async (fields) => {
+    const res = await fetch(`${STUDENT_BACKEND_URL}/auth/student/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fields)
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Signup failed. Please try again.');
+    }
+    localStorage.setItem(STORAGE_KEY, data.token);
+    setToken(data.token);
+    setStudent(data.student);
+    return data.student;
   }, []);
 
   // On mount (or whenever the token changes), verify it's still valid via
-  // GET /api/auth/staff/me rather than trusting whatever is sitting in storage.
+  // GET /api/auth/student/me rather than trusting whatever is sitting in storage.
   useEffect(() => {
     let cancelled = false;
 
@@ -84,13 +94,13 @@ export const AdminProvider = ({ children }) => {
         return;
       }
       try {
-        const res = await fetch(`${ADMIN_BACKEND_URL}/auth/staff/me`, {
+        const res = await fetch(`${STUDENT_BACKEND_URL}/auth/student/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await res.json();
         if (cancelled) return;
-        if (res.ok && data.staff) {
-          setStaff(data.staff);
+        if (res.ok && data.student) {
+          setStudent(data.student);
         } else {
           logout();
         }
@@ -107,16 +117,17 @@ export const AdminProvider = ({ children }) => {
   }, [token]);
 
   return (
-    <AdminContext.Provider value={{
+    <StudentAuthContext.Provider value={{
       token,
-      staff,
+      student,
       authChecked,
       login,
+      signup,
       logout,
-      fetchAdmin,
-      backendUrl: ADMIN_BACKEND_URL
+      fetchStudent,
+      backendUrl: STUDENT_BACKEND_URL
     }}>
       {children}
-    </AdminContext.Provider>
+    </StudentAuthContext.Provider>
   );
 };

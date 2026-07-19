@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useStudentAuth } from './StudentAuthContext';
 
 const CampusContext = createContext();
 
 export const useCampus = () => useContext(CampusContext);
 
 export const CampusProvider = ({ children }) => {
+  const { student: authStudent, fetchStudent } = useStudentAuth();
   const [student, setStudent] = useState(null);
   const [dashboard, setDashboard] = useState({
     joinedClubs: [],
@@ -15,7 +17,7 @@ export const CampusProvider = ({ children }) => {
   const [chatHistory, setChatHistory] = useState([
     {
       sender: 'agent',
-      text: "Welcome to CampusVerse AI, Aarav! I am your central Planner Agent. How can I assist you today? You can use one of the quick actions below to run proactive agentic workflows.",
+      text: `Welcome to CampusVerse AI${authStudent?.name ? `, ${authStudent.name}` : ''}! I am your central Planner Agent. How can I assist you today? You can use one of the quick actions below to run proactive agentic workflows.`,
       timestamp: new Date().toLocaleTimeString(),
       reasoningSteps: [],
       agentCollaborations: []
@@ -56,8 +58,7 @@ export const CampusProvider = ({ children }) => {
 
   const loadStudentData = async () => {
     try {
-      const response = await fetch(`${backendUrl}/student`);
-      const data = await response.json();
+      const data = await fetchStudent('/student');
       if (data.student) {
         setStudent(data.student);
         setDashboard(data.dashboard);
@@ -69,8 +70,7 @@ export const CampusProvider = ({ children }) => {
 
   const loadRecommendations = async () => {
     try {
-      const response = await fetch(`${backendUrl}/student/recommendations`);
-      const data = await response.json();
+      const data = await fetchStudent('/student/recommendations');
       setRecommendations(data);
     } catch (error) {
       console.error('Error fetching recommendations:', error);
@@ -102,14 +102,12 @@ export const CampusProvider = ({ children }) => {
     setActiveAgent('IntentAgent');
 
     try {
-      const endpoint = mode === 'voice' ? `${backendUrl}/agent/voice` : `${backendUrl}/agent/chat`;
+      const endpoint = mode === 'voice' ? '/agent/voice' : '/agent/chat';
       const payload = mode === 'voice' ? { transcript: queryText } : { query: queryText };
-      const response = await fetch(endpoint, {
+      const result = await fetchStudent(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const result = await response.json();
 
       // Simulate a small delay for realistic multi-agent execution feel
       await new Promise(resolve => setTimeout(resolve, 800));
@@ -192,7 +190,7 @@ export const CampusProvider = ({ children }) => {
       console.error('Error sending chat message:', error);
       setChatHistory(prev => [...prev, {
         sender: 'agent',
-        text: 'Sorry Aarav, I encountered an issue connecting to the central agent planner server.',
+        text: 'Sorry, I encountered an issue connecting to the central agent planner server.',
         timestamp: new Date().toLocaleTimeString()
       }]);
     } finally {
@@ -235,12 +233,10 @@ export const CampusProvider = ({ children }) => {
   };
 
   const createCommunityPost = async ({ title, content, tags }) => {
-    const response = await fetch(`${backendUrl}/community/posts`, {
+    const result = await fetchStudent('/community/posts', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, content, tags })
     });
-    const result = await response.json();
     if (result.success) {
       await loadCommunityPosts();
     }
@@ -248,12 +244,10 @@ export const CampusProvider = ({ children }) => {
   };
 
   const addCommunityComment = async (postId, content) => {
-    const response = await fetch(`${backendUrl}/community/posts/${postId}/comments`, {
+    const result = await fetchStudent(`/community/posts/${postId}/comments`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content })
     });
-    const result = await response.json();
     if (result.success) {
       await loadCommunityPosts();
     }

@@ -1,6 +1,7 @@
 // Staff Auth Routes
-// Handles login for the separate Admin/Faculty portal. Students never use
-// this — they remain on the existing single-active-student demo flow.
+// Handles login for the separate Admin/Faculty portal. Mounted at
+// /api/auth/staff — see routes/studentAuthRoutes.js for the student side.
+// Staff accounts are provisioned by seeding/another admin, not self-signup.
 
 import express from 'express';
 import bcrypt from 'bcryptjs';
@@ -9,7 +10,7 @@ import { signStaffToken, requireStaff } from '../middleware/auth.js';
 export function createAuthRouter(prisma) {
   const router = express.Router();
 
-  // POST /api/auth/login
+  // POST /api/auth/staff/login
   router.post('/login', async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -44,7 +45,7 @@ export function createAuthRouter(prisma) {
     }
   });
 
-  // GET /api/auth/me — lets the frontend verify a stored token on page load
+  // GET /api/auth/staff/me — lets the frontend verify a stored token on page load
   router.get('/me', requireStaff, (req, res) => {
     res.json({ staff: req.staff });
   });

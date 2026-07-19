@@ -1,12 +1,12 @@
 // AI Senior Mentor Community Routes
 // A lightweight social layer where freshers/students can post questions,
-// share projects, and get comment responses. This is student-facing (uses
-// the existing single-active-student demo pattern), NOT staff-gated —
+// share projects, and get comment responses. The feed (GET) stays publicly
+// readable; posting requires a real logged-in student (requireStudent) —
 // separate concern from the Admin/Faculty portal.
 
 import express from 'express';
 
-export function createCommunityRouter(prisma, getActiveStudent) {
+export function createCommunityRouter(prisma, requireStudent) {
   const router = express.Router();
 
   // GET /api/community/posts — feed, newest first
@@ -48,17 +48,16 @@ export function createCommunityRouter(prisma, getActiveStudent) {
     }
   });
 
-  // POST /api/community/posts — create a new post as the active student
-  router.post('/posts', async (req, res) => {
+  // POST /api/community/posts — create a new post as the logged-in student
+  router.post('/posts', requireStudent, async (req, res) => {
     try {
       const { title, content, tags } = req.body;
       if (!title || !content) {
         return res.status(400).json({ error: 'title and content are required' });
       }
-      const student = await getActiveStudent();
       const post = await prisma.communityPost.create({
         data: {
-          studentId: student.id,
+          studentId: req.student.id,
           title,
           content,
           tags: tags || ''
@@ -71,7 +70,7 @@ export function createCommunityRouter(prisma, getActiveStudent) {
   });
 
   // POST /api/community/posts/:id/comments — reply to a post
-  router.post('/posts/:id/comments', async (req, res) => {
+  router.post('/posts/:id/comments', requireStudent, async (req, res) => {
     try {
       const { content } = req.body;
       if (!content) {
@@ -80,11 +79,10 @@ export function createCommunityRouter(prisma, getActiveStudent) {
       const post = await prisma.communityPost.findUnique({ where: { id: req.params.id } });
       if (!post) return res.status(404).json({ error: 'Post not found' });
 
-      const student = await getActiveStudent();
       const comment = await prisma.communityComment.create({
         data: {
           postId: post.id,
-          studentId: student.id,
+          studentId: req.student.id,
           content
         }
       });

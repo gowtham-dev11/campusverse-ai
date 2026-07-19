@@ -1,0 +1,186 @@
+/* Common Auth Page — the shared entry point for both Student and Staff.
+   Deliberately blends both surfaces' identities (cyan student / gold staff)
+   into one neutral gateway, so it doesn't read as "belonging" to either
+   side before the person has picked a role. */
+
+.auth-page {
+  --auth-bg: #0a0c10;
+  --auth-panel: #12151c;
+  --auth-border: rgba(255, 255, 255, 0.08);
+  --auth-border-hover: rgba(255, 255, 255, 0.16);
+  --auth-cyan: #22d3ee;
+  --auth-cyan-dim: rgba(34, 211, 238, 0.12);
+  --auth-gold: #f5b942;
+  --auth-gold-dim: rgba(245, 185, 66, 0.12);
+  --auth-red: #ef4444;
+  --auth-red-dim: rgba(239, 68, 68, 0.12);
+  --auth-text: #eef1f6;
+  --auth-text-dim: #8b93a3;
+  --auth-text-faint: #545c6b;
+  --auth-font: 'Inter', 'Segoe UI', sans-serif;
+  --auth-radius-lg: 20px;
+  --auth-radius-md: 14px;
+  --auth-radius-pill: 999px;
+
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: var(--auth-bg);
+  background-image:
+    radial-gradient(at 0% 0%, rgba(34, 211, 238, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(245, 185, 66, 0.08) 0px, transparent 50%);
+  color: var(--auth-text);
+  font-family: var(--auth-font);
+}
+
+.auth-page * { box-sizing: border-box; }
+.auth-page button { font-family: inherit; cursor: pointer; }
+.auth-page input, .auth-page select { font-family: inherit; }
+.auth-page code { font-family: 'JetBrains Mono', monospace; }
+
+.auth-spin { animation: auth-spin-anim 0.9s linear infinite; }
+@keyframes auth-spin-anim { to { transform: rotate(360deg); } }
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--auth-panel);
+  border: 1px solid var(--auth-border);
+  border-radius: var(--auth-radius-lg);
+  padding: 2rem 2rem 1.75rem;
+  box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.auth-brand-icon {
+  width: 42px; height: 42px; flex-shrink: 0;
+  border-radius: var(--auth-radius-md);
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--auth-cyan-dim), var(--auth-gold-dim));
+  color: var(--auth-cyan);
+  border: 1px solid var(--auth-border-hover);
+}
+.auth-title { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
+.auth-subtitle { font-size: 11.5px; color: var(--auth-text-dim); margin-top: 0.2rem; line-height: 1.4; }
+
+/* Role toggle: Student / Staff */
+.auth-role-toggle {
+  display: flex;
+  gap: 0.4rem;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--auth-border);
+  border-radius: var(--auth-radius-pill);
+  padding: 0.3rem;
+  margin-bottom: 1.25rem;
+}
+.auth-role-btn {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+  background: transparent; border: none; border-radius: var(--auth-radius-pill);
+  padding: 0.55rem 0.5rem;
+  font-size: 12.5px; font-weight: 700;
+  color: var(--auth-text-dim);
+  transition: all 0.15s;
+}
+.auth-role-btn:hover { color: var(--auth-text); }
+.auth-role-btn.active {
+  background: var(--auth-cyan-dim);
+  color: var(--auth-cyan);
+}
+.auth-role-btn.active:nth-child(2) {
+  background: var(--auth-gold-dim);
+  color: var(--auth-gold);
+}
+
+/* Login / Signup sub-tabs (student side only) */
+.auth-subtabs {
+  display: flex;
+  gap: 1.25rem;
+  border-bottom: 1px solid var(--auth-border);
+  margin-bottom: 1.1rem;
+}
+.auth-subtab-btn {
+  background: none; border: none;
+  padding: 0.1rem 0 0.6rem;
+  font-size: 12.5px; font-weight: 700;
+  color: var(--auth-text-faint);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.15s;
+}
+.auth-subtab-btn:hover { color: var(--auth-text-dim); }
+.auth-subtab-btn.active { color: var(--auth-text); border-bottom-color: var(--auth-cyan); }
+
+/* Form */
+.auth-form { display: flex; flex-direction: column; gap: 0.3rem; text-align: left; }
+.auth-field-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--auth-text-dim); margin: 0.6rem 0 0.3rem;
+}
+.auth-field-row { display: flex; gap: 0.6rem; }
+.auth-input-wrap { position: relative; display: flex; align-items: center; }
+.auth-input-icon { position: absolute; left: 11px; color: var(--auth-text-faint); pointer-events: none; }
+.auth-input {
+  width: 100%;
+  background: #090b0f;
+  border: 1px solid var(--auth-border);
+  border-radius: var(--auth-radius-md);
+  padding: 0.62rem 0.75rem 0.62rem 2.1rem;
+  font-size: 13px;
+  color: var(--auth-text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.auth-input:focus { border-color: var(--auth-cyan); }
+.auth-select { appearance: none; cursor: pointer; }
+
+.auth-alert {
+  display: flex; align-items: center; gap: 0.45rem;
+  background: var(--auth-red-dim); border: 1px solid rgba(239,68,68,0.25);
+  color: #fca5a5; font-size: 12px; font-weight: 600;
+  padding: 0.55rem 0.7rem; border-radius: var(--auth-radius-md);
+  margin-bottom: 0.25rem;
+}
+
+.auth-btn-primary {
+  margin-top: 1.1rem; width: 100%;
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  background: var(--auth-cyan); color: #04222a;
+  font-weight: 700; font-size: 12.5px;
+  padding: 0.65rem 1.15rem; border-radius: var(--auth-radius-pill); border: none;
+  box-shadow: 0 0 26px rgba(34, 211, 238, 0.2);
+  transition: all 0.15s;
+}
+.auth-btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+.auth-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.auth-btn-staff {
+  background: var(--auth-gold); color: #17130a;
+  box-shadow: 0 0 26px rgba(245, 185, 66, 0.2);
+}
+
+.auth-switch-line {
+  margin-top: 1rem; font-size: 12px; color: var(--auth-text-dim); text-align: center;
+}
+.auth-link-btn {
+  background: none; border: none; color: var(--auth-cyan);
+  font-size: 12px; font-weight: 700; padding: 0; text-decoration: underline;
+}
+
+.auth-footnote {
+  margin-top: 1.25rem; font-size: 10px; color: var(--auth-text-faint); line-height: 1.6; text-align: center;
+}
+.auth-footnote code {
+  background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 4px; color: var(--auth-text-dim);
+}
+
+.auth-loading-screen {
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.75rem; background: #0a0c10; color: #8b93a3; font-family: 'Inter', 'Segoe UI', sans-serif;
+}

@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CampusProvider, useCampus } from './context/CampusContext';
+import { useStudentAuth } from './context/StudentAuthContext';
 import { 
   Sparkles, Send, Calendar, MapPin, Award, Shield, 
   TrendingUp, User, BookOpen, Layers, Terminal, 
   ArrowRight, Activity, Network, BookOpenCheck, Clock, CheckCircle2,
   Users, Building2, MessageSquare, Compass, Info, Map, Download, Mail, ImagePlus,
-  Search, Menu, ChevronLeft, ChevronRight
+  Search, Menu, ChevronLeft, ChevronRight, LogOut
 } from 'lucide-react';
 
 // Import Widgets
@@ -40,6 +41,7 @@ function AppContent() {
     recommendations, activeAgent, view, setView,
     activeDashboardTab, setActiveDashboardTab, sendChatMessage 
   } = useCampus();
+  const { logout } = useStudentAuth();
 
   const [input, setInput] = useState('');
   const chatEndRef = useRef(null);
@@ -227,12 +229,32 @@ function AppContent() {
             </span>
             <VoiceInputButton />
             <div className="profile-chip">
-              <div className="profile-chip-avatar">AS</div>
+              <div className="profile-chip-avatar">
+                {(student?.name || 'S')
+                  .split(' ')
+                  .map(w => w[0])
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </div>
               <div>
                 <p className="profile-chip-name">{student?.name || 'Student'}</p>
                 <p className="profile-chip-role">{student?.department ? `${student.department} Student` : 'Student'}</p>
               </div>
             </div>
+            <button
+              onClick={logout}
+              title="Log out"
+              aria-label="Log out"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '34px', height: '34px', borderRadius: '10px',
+                background: 'transparent', border: '1px solid rgba(255,255,255,0.08)',
+                color: 'var(--text-dim, #8b93a3)', cursor: 'pointer', flexShrink: 0
+              }}
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </header>
 
